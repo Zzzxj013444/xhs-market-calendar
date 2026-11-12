@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="zh-CN" data-arrivals-site>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1b1c" media="(prefers-color-scheme: dark)">
+<meta name="description" content="市集上新日历交互原型：订阅喜欢的店铺与买手，集中查看新品、选品预告和开售安排。">
+<title>市集上新日历 · 移动端 Demo</title>
+<link rel="icon" href="data:,">
+</head>
+<body>
+<script>
+(() => {
+  const key = 'xhs-market-calendar:demo:v2';
+  const legacyKey = 'codex:visualization-widget-state-v2:' + JSON.stringify([location.pathname, location.search]);
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(key) || localStorage.getItem(legacyKey) || 'null'); } catch {}
+  window.openai = {
+    widgetState: saved,
+    async setWidgetState(next) {
+      const snapshot = JSON.parse(JSON.stringify(next));
+      this.widgetState = snapshot;
+      try { localStorage.setItem(key, JSON.stringify(snapshot)); } catch {}
+    }
+  };
+  window.addEventListener('storage', event => {
+    if (event.key !== key) return;
+    try {
+      const snapshot = JSON.parse(event.newValue || 'null');
+      window.openai.widgetState = snapshot;
+      window.dispatchEvent(new CustomEvent('openai:set_globals', {detail: {globals: {widgetState: snapshot}}}));
+    } catch {}
+  });
+})();
+</script>
+<style>
+#arrival-journey{--aj-bg:light-dark(#fff,#1b1b1c);--aj-ink:light-dark(#262526,#f3f1ef);--aj-muted:light-dark(#777476,#aaa6a5);--aj-line:light-dark(#ece9e7,#383535);--aj-soft:light-dark(#f7f5f3,#252425);--aj-pink:light-dark(#fff0f2,#3e242a);--aj-red:#ef2949;--aj-green:light-dark(#52725d,#a3c6ab);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--aj-ink);width:100%;color-scheme:light dark}
+#arrival-journey *{box-sizing:border-box}#arrival-journey button,#arrival-journey input{font:inherit}#arrival-journey button{color:inherit;background:transparent;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}#arrival-journey button:disabled{cursor:default;opacity:.4}#arrival-journey button:focus-visible,#arrival-journey input:focus-visible{outline:2px solid var(--aj-red);outline-offset:3px}#arrival-journey h2,#arrival-journey h3,#arrival-journey p{margin:0}#arrival-journey svg{width:18px;height:18px;flex-shrink:0;stroke-width:1.7}#arrival-journey .aj-icon{display:inline-flex;align-items:center;justify-content:center}
+#arrival-journey .aj-workbench{max-width:820px;margin:auto;padding:14px 0;display:grid;grid-template-columns:165px minmax(0,420px);justify-content:center;gap:28px;align-items:start}#arrival-journey .aj-rail{padding-top:25px}#arrival-journey .aj-eyebrow{font-size:11px;letter-spacing:2px;color:var(--aj-muted)}#arrival-journey .aj-rail h2{font-size:22px;font-weight:500;margin:8px 0 24px;letter-spacing:-.7px}#arrival-journey .aj-steps{display:grid;gap:6px}#arrival-journey .aj-step{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 8px;border-radius:12px;font-size:13px;min-height:44px;width:100%}#arrival-journey .aj-step em{font-size:11px;font-style:normal;width:23px;height:23px;display:grid;place-items:center;border:1px solid var(--aj-line);border-radius:50%;color:var(--aj-muted)}#arrival-journey .aj-step[aria-current="step"]{background:var(--aj-pink);color:var(--aj-red)}#arrival-journey .aj-step[aria-current="step"] em{background:var(--aj-red);border-color:var(--aj-red);color:#fff}#arrival-journey .aj-stage-note{font-size:12px;color:var(--aj-muted);line-height:1.7;padding:18px 8px 0;max-width:164px}#arrival-journey .aj-reset{font-size:12px;color:var(--aj-muted);display:flex;gap:6px;align-items:center;margin-top:24px;padding:10px 8px}#arrival-journey .aj-reset svg{width:14px;height:14px}
+#arrival-journey .aj-preview{min-width:0;width:100%}#arrival-journey .aj-demo-bar{font-size:11px;color:var(--aj-muted);display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 7px 11px}#arrival-journey .aj-demo-clock{font-variant-numeric:tabular-nums}#arrival-journey .aj-phone{width:100%;background:var(--aj-bg);border:1px solid var(--aj-line);border-radius:29px;position:relative;overflow:clip;box-shadow:0 14px 45px #00000007;min-height:650px}#arrival-journey .aj-screen{min-height:650px;display:flex;flex-direction:column}#arrival-journey .aj-status{display:flex;justify-content:space-between;padding:14px 22px 5px;align-items:center;font-size:12px;font-weight:500}#arrival-journey .aj-status-icons{display:flex;gap:5px}#arrival-journey .aj-status-icons svg{width:13px;height:13px}#arrival-journey .aj-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 18px 13px}#arrival-journey .aj-top h2{font-size:18px;font-weight:500}#arrival-journey .aj-market-title{font-size:22px;font-weight:500;letter-spacing:-.6px}#arrival-journey .aj-top-action{display:flex;align-items:center;gap:5px;font-size:12px;min-height:40px;padding:4px 0}#arrival-journey .aj-top-action svg{width:17px;height:17px}#arrival-journey .aj-count{font-size:11px;background:var(--aj-red);color:#fff;border-radius:10px;min-width:17px;height:17px;display:grid;place-items:center;padding:0 4px}#arrival-journey .aj-top-tabs{display:flex;gap:24px;align-items:center;padding:0 18px 13px;border-bottom:1px solid var(--aj-line)}#arrival-journey .aj-top-tabs button{font-size:17px;position:relative;padding:7px 0;min-height:37px;color:var(--aj-muted)}#arrival-journey .aj-top-tabs button[aria-pressed=true]{font-weight:500;color:var(--aj-ink)}#arrival-journey .aj-top-tabs button[aria-pressed=true]:after{content:"";position:absolute;bottom:0;left:calc(50% - 9px);width:18px;height:3px;border-radius:3px;background:var(--aj-red)}#arrival-journey .aj-new-dot{display:inline-block;width:5px;height:5px;background:var(--aj-red);border-radius:50%;vertical-align:top;margin:5px 0 0 4px}#arrival-journey .aj-top-tabs .aj-text-link{font-size:12px;margin-left:auto;display:flex;gap:4px;align-items:center;color:var(--aj-muted)}
+#arrival-journey .aj-body{padding:17px 16px 20px}#arrival-journey .aj-spacer{flex:1}#arrival-journey .aj-bottom-nav{display:flex;justify-content:space-around;gap:8px;border-top:1px solid var(--aj-line);padding:12px 12px 19px;font-size:11px;color:var(--aj-muted);margin-top:auto}#arrival-journey .aj-bottom-nav span{display:flex;flex-direction:column;align-items:center;gap:5px}#arrival-journey .aj-bottom-nav .aj-current{color:var(--aj-ink);font-weight:500}#arrival-journey .aj-bottom-nav .aj-plus{width:32px;height:25px;background:var(--aj-red);color:#fff;border-radius:7px;display:grid;place-items:center;margin-top:2px}
+#arrival-journey .aj-banner{position:relative;background:light-dark(#f5ece7,#322925);border-radius:17px;padding:20px 17px;min-height:178px;overflow:hidden;margin-bottom:20px}#arrival-journey .aj-banner-kicker{font-size:11px;letter-spacing:1.5px;color:light-dark(#856d64,#cab6a9);margin-bottom:9px}#arrival-journey .aj-banner h3{font-size:23px;line-height:1.35;font-weight:500;letter-spacing:-.7px;max-width:240px;position:relative;z-index:2}#arrival-journey .aj-banner p{font-size:12px;line-height:1.6;color:var(--aj-muted);max-width:220px;margin-top:9px;position:relative;z-index:2}#arrival-journey .aj-banner button{margin-top:15px;position:relative;z-index:2}#arrival-journey .aj-paper-calendar{width:94px;height:108px;position:absolute;right:15px;bottom:21px;background:#fffaf5;transform:rotate(9deg);border-radius:9px;box-shadow:0 8px 22px #745a4820;color:#8c4f43;display:flex;align-items:center;flex-direction:column;font-family:Georgia,serif}#arrival-journey .aj-paper-calendar:before{content:"NOVEMBER";font:10px sans-serif;letter-spacing:1px;background:#b77e6f;color:#fff;width:100%;text-align:center;padding:10px 0;border-radius:9px 9px 0 0}#arrival-journey .aj-paper-calendar b{font-size:40px;font-weight:400;padding-top:7px}#arrival-journey .aj-paper-calendar small{font-size:11px;color:#998e80}#arrival-journey .aj-section-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}#arrival-journey .aj-section-row h3{font-size:15px;font-weight:500}#arrival-journey .aj-subtle{font-size:11px;color:var(--aj-muted);line-height:1.6}#arrival-journey .aj-rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}#arrival-journey .aj-rec-item{text-align:left;padding:0;min-width:0}#arrival-journey .aj-rec-item .aj-art{height:182px;border-radius:11px}#arrival-journey .aj-rec-item h3{font-size:13px;font-weight:500;line-height:1.55;margin:9px 2px 5px}#arrival-journey .aj-rec-meta{display:flex;justify-content:space-between;gap:5px;font-size:11px;color:var(--aj-muted);padding:0 2px}#arrival-journey .aj-rec-meta b{color:var(--aj-ink);font-size:15px;font-weight:500}
+#arrival-journey .aj-primary{background:var(--aj-red);color:#fff;border-radius:24px;min-height:43px;padding:11px 19px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px}#arrival-journey .aj-secondary{border:1px solid var(--aj-line);border-radius:22px;min-height:38px;padding:9px 14px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--aj-bg)}#arrival-journey .aj-secondary.selected{color:var(--aj-red);background:var(--aj-pink);border-color:transparent}#arrival-journey .aj-text-link{font-size:12px;padding:7px 0;min-height:30px;color:var(--aj-muted);display:inline-flex;align-items:center;gap:4px}#arrival-journey .aj-text-link svg{width:14px;height:14px}#arrival-journey .aj-full{width:100%}#arrival-journey .aj-footer-action{padding:15px 18px 22px;border-top:1px solid var(--aj-line);margin-top:auto}#arrival-journey .aj-footer-action .aj-subtle{margin-top:9px;text-align:center}#arrival-journey .aj-intro-title{font-size:25px;font-weight:500;line-height:1.35;letter-spacing:-.6px;margin:2px 0 10px}#arrival-journey .aj-intro-copy{font-size:12px;line-height:1.75;color:var(--aj-muted);margin-bottom:19px}#arrival-journey .aj-candidate{padding:16px 0;border-bottom:1px solid var(--aj-line)}#arrival-journey .aj-person-row{display:flex;align-items:center;gap:10px;min-width:0}#arrival-journey .aj-avatar{width:39px;height:39px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;font-family:Georgia,"Songti SC",serif;font-size:16px;background:#ece8dc;color:#6b715c}#arrival-journey .aj-avatar[data-owner=clay]{background:#eee0d6;color:#8f6c54}#arrival-journey .aj-avatar[data-owner=buyer]{background:#dce3e1;color:#596e68}#arrival-journey .aj-person-info{min-width:0;flex:1}#arrival-journey .aj-person-name{font-size:14px;font-weight:500;display:flex;gap:6px;align-items:center;flex-wrap:wrap}#arrival-journey .aj-kind{font-size:11px;font-weight:400;color:var(--aj-muted);border:1px solid var(--aj-line);border-radius:4px;padding:1px 4px}#arrival-journey .aj-person-meta{font-size:11px;line-height:1.5;color:var(--aj-muted);margin-top:4px}#arrival-journey .aj-check{width:24px;height:24px;accent-color:var(--aj-red);margin:0 2px 0 auto;flex:0 0 auto;cursor:pointer}#arrival-journey .aj-candidate-preview{display:flex;gap:7px;padding-left:49px;margin-top:11px;align-items:center}#arrival-journey .aj-candidate-preview .aj-art{width:58px;height:55px;border-radius:7px;flex:0 0 auto}#arrival-journey .aj-candidate-preview p{font-size:11px;color:var(--aj-muted);line-height:1.6}#arrival-journey .aj-candidate label{display:flex;gap:10px;align-items:center;min-height:44px;cursor:pointer}
+#arrival-journey .aj-notice{background:var(--aj-pink);color:var(--aj-red);font-size:12px;line-height:1.7;border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:14px}#arrival-journey .aj-notice.neutral{background:var(--aj-soft);color:var(--aj-muted)}#arrival-journey .aj-cal-heading{display:flex;align-items:center;justify-content:space-between;margin:17px 16px 12px}#arrival-journey .aj-cal-heading h3{font-size:18px;font-weight:500;letter-spacing:-.4px}#arrival-journey .aj-cal-heading h3 span{font-size:12px;font-weight:400;color:var(--aj-muted);margin-left:8px}#arrival-journey .aj-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;padding:0 14px 15px}#arrival-journey .aj-day{border-radius:12px;display:flex;flex-direction:column;gap:7px;align-items:center;justify-content:center;padding:9px 0;font-size:11px;color:var(--aj-muted);min-height:73px}#arrival-journey .aj-day b{font-size:17px;font-weight:500;color:var(--aj-ink)}#arrival-journey .aj-day small{font-size:11px;height:11px}#arrival-journey .aj-day[aria-pressed=true]{background:var(--aj-red);color:#fff}#arrival-journey .aj-day[aria-pressed=true] b{color:#fff}#arrival-journey .aj-day.today:not([aria-pressed=true]){background:var(--aj-soft)}#arrival-journey .aj-filter-row{display:flex;gap:7px;align-items:center;padding:0 16px 13px;flex-wrap:wrap}#arrival-journey .aj-filter{font-size:12px;color:var(--aj-muted);border-radius:15px;padding:6px 12px;min-height:31px;background:var(--aj-soft)}#arrival-journey .aj-filter[aria-pressed=true]{background:var(--aj-ink);color:var(--aj-bg)}#arrival-journey .aj-filter-row .aj-subtle{margin-left:auto}#arrival-journey .aj-feed{background:var(--aj-soft);padding:9px 10px 12px;display:grid;gap:10px}#arrival-journey .aj-event{background:var(--aj-bg);border-radius:15px;padding:14px 13px}#arrival-journey .aj-event-status{font-size:11px;color:var(--aj-muted);text-align:right;flex:0 0 auto}#arrival-journey .aj-event-status.open{color:var(--aj-green)}#arrival-journey .aj-event-status.live{color:var(--aj-red)}#arrival-journey .aj-event-title{font-size:15px;font-weight:500;margin-top:12px;line-height:1.5}#arrival-journey .aj-event-desc{font-size:11px;color:var(--aj-muted);margin:5px 0 10px;line-height:1.6}#arrival-journey .aj-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#arrival-journey .aj-gallery button{text-align:left;padding:0;min-width:0}#arrival-journey .aj-gallery .aj-art{height:100px;border-radius:8px}#arrival-journey .aj-gallery-price{font-size:12px;margin:6px 2px 0}#arrival-journey .aj-event-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:11px}#arrival-journey .aj-event-actions .aj-secondary{min-height:32px;font-size:11px;padding:7px 11px}#arrival-journey .aj-event-actions .aj-secondary svg{width:13px;height:13px}#arrival-journey .aj-seen{font-size:11px;color:var(--aj-muted)}#arrival-journey .aj-unseen{font-size:11px;color:var(--aj-red)}#arrival-journey .aj-empty{padding:37px 18px;text-align:center;background:var(--aj-bg);border-radius:15px}#arrival-journey .aj-empty-icon{display:grid;place-items:center;color:var(--aj-muted);margin:0 auto 14px;width:47px;height:47px;background:var(--aj-soft);border-radius:50%}#arrival-journey .aj-empty h3{font-size:16px;font-weight:500}#arrival-journey .aj-empty p{font-size:12px;line-height:1.8;color:var(--aj-muted);margin:10px auto 18px;max-width:260px}
+#arrival-journey .aj-detail-hero{padding:0 15px}#arrival-journey .aj-detail-hero .aj-gallery .aj-art{height:165px}#arrival-journey .aj-detail-heading{padding:18px 18px 15px}#arrival-journey .aj-detail-heading h2{font-size:25px;font-weight:500;letter-spacing:-.8px;line-height:1.4;margin:10px 0 8px}#arrival-journey .aj-detail-heading p{font-size:12px;line-height:1.8;color:var(--aj-muted)}#arrival-journey .aj-timing{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--aj-red);margin-top:12px}#arrival-journey .aj-timing svg{width:15px;height:15px}#arrival-journey .aj-old-time{font-size:11px;color:var(--aj-muted);text-decoration:line-through;margin-top:6px}#arrival-journey .aj-product-list{padding:0 17px}#arrival-journey .aj-product-row{display:flex;gap:12px;padding:13px 0;border-top:1px solid var(--aj-line);align-items:center}#arrival-journey .aj-product-row>.aj-art{width:84px;height:89px;flex:0 0 auto;border-radius:10px}#arrival-journey .aj-product-info{flex:1;min-width:0}#arrival-journey .aj-product-info h3{font-size:13px;font-weight:500;line-height:1.5}#arrival-journey .aj-product-info p{font-size:11px;color:var(--aj-muted);margin-top:5px;line-height:1.5}#arrival-journey .aj-product-price-row{display:flex;justify-content:space-between;align-items:center;gap:7px;margin-top:9px}#arrival-journey .aj-price{font-size:17px;font-weight:500}#arrival-journey .aj-mini-button{min-height:32px;padding:7px 12px;border-radius:18px;font-size:11px;background:var(--aj-soft)}#arrival-journey .aj-bottom-split{display:flex;gap:9px}#arrival-journey .aj-bottom-split>button{flex:1}#arrival-journey .aj-save-button{display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;min-height:35px;padding:7px 8px}#arrival-journey .aj-save-button.saved{color:var(--aj-red)}#arrival-journey .aj-save-button svg{width:15px;height:15px}
+#arrival-journey .aj-overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:flex-end}#arrival-journey .aj-shade{position:absolute;inset:0;background:#0005;width:100%;height:100%}#arrival-journey .aj-sheet{position:relative;width:100%;background:var(--aj-bg);border-radius:24px 24px 0 0;padding:19px 20px 25px;animation:aj-rise .22s ease-out}#arrival-journey .aj-sheet-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:16px}#arrival-journey .aj-sheet-head h3{font-size:17px;font-weight:500}#arrival-journey .aj-close{display:grid;place-items:center;width:35px;height:35px;border-radius:50%;background:var(--aj-soft)}#arrival-journey .aj-close svg{width:16px;height:16px}#arrival-journey .aj-remind-symbol{width:50px;height:50px;border-radius:16px;background:var(--aj-pink);display:grid;place-items:center;color:var(--aj-red);margin-bottom:13px}#arrival-journey .aj-remind-symbol svg{width:24px;height:24px}#arrival-journey .aj-sheet-title{font-size:21px;font-weight:500;margin-bottom:8px}#arrival-journey .aj-sheet-copy{font-size:12px;line-height:1.8;color:var(--aj-muted)}#arrival-journey .aj-remind-choice{display:flex;gap:9px;align-items:center;background:var(--aj-soft);border-radius:11px;padding:12px;margin:17px 0;font-size:12px}#arrival-journey .aj-remind-choice input{accent-color:var(--aj-red);width:17px;height:17px;margin:0}#arrival-journey .aj-sku-head{display:flex;gap:14px;align-items:center;margin-bottom:16px}#arrival-journey .aj-sku-head .aj-art{width:90px;height:100px;border-radius:11px;flex:0 0 auto}#arrival-journey .aj-sku-head h3{font-size:15px;font-weight:500;margin-bottom:8px}#arrival-journey .aj-sku-head p{font-size:11px;color:var(--aj-muted);margin-top:6px}#arrival-journey .aj-size-label{font-size:12px;margin-bottom:10px}#arrival-journey .aj-sizes{display:flex;gap:8px;margin-bottom:13px;flex-wrap:wrap}#arrival-journey .aj-size{border:1px solid var(--aj-line);border-radius:9px;padding:9px 15px;font-size:12px;min-height:39px}#arrival-journey .aj-size[aria-pressed=true]{background:var(--aj-pink);color:var(--aj-red);border-color:var(--aj-red)}#arrival-journey .aj-spec-detail{font-size:11px;color:var(--aj-muted);line-height:1.8;min-height:34px;margin:0 0 15px}#arrival-journey .aj-sku-actions{display:flex;gap:9px}#arrival-journey .aj-sku-actions .aj-primary{flex:1}#arrival-journey .aj-toast{position:absolute;z-index:20;bottom:98px;left:50%;transform:translateX(-50%);background:#333e;color:#fff;padding:11px 16px;border-radius:22px;font-size:12px;max-width:88%;width:max-content;text-align:center;box-shadow:0 5px 20px #0001;pointer-events:none}
+#arrival-journey .aj-collection-row{display:flex;gap:9px;align-items:center;background:var(--aj-soft);padding:12px;border-radius:12px;margin-bottom:13px;text-align:left;width:100%}#arrival-journey .aj-collection-row>div{flex:1}#arrival-journey .aj-collection-row strong{font-size:13px;font-weight:500}#arrival-journey .aj-collection-row p{font-size:11px;color:var(--aj-muted);margin-top:4px}#arrival-journey .aj-manager-row{border-bottom:1px solid var(--aj-line);padding:15px 0}#arrival-journey .aj-manager-row .aj-secondary{font-size:11px;padding:7px 10px;min-height:34px}#arrival-journey .aj-manager-note{font-size:11px;color:var(--aj-muted);margin:9px 0 0 49px;line-height:1.6}#arrival-journey .aj-section-gap{margin-top:23px}#arrival-journey .aj-reminder-row{padding:13px 0;border-bottom:1px solid var(--aj-line);display:flex;align-items:center;gap:9px}#arrival-journey .aj-reminder-row>div{flex:1}#arrival-journey .aj-reminder-row h3{font-size:13px;font-weight:500;line-height:1.5}#arrival-journey .aj-reminder-row p{font-size:11px;color:var(--aj-muted);margin-top:5px}#arrival-journey .aj-bag-group{border:1px solid var(--aj-line);border-radius:14px;margin-bottom:12px;padding:13px}#arrival-journey .aj-bag-shop{font-size:13px;display:flex;align-items:center;gap:7px;margin-bottom:4px}#arrival-journey .aj-bag-shop svg{width:15px;height:15px}#arrival-journey .aj-bag-group .aj-product-row{border-top:0}#arrival-journey .aj-bag-group .aj-art{width:74px;height:79px}#arrival-journey .aj-bag-shipping{font-size:11px;color:var(--aj-muted);border-top:1px solid var(--aj-line);padding-top:10px;display:flex;justify-content:space-between}#arrival-journey .aj-amount-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:10px;margin:12px 0}#arrival-journey .aj-amount-row.total{font-size:15px;padding-top:13px;border-top:1px solid var(--aj-line)}#arrival-journey .aj-success{padding:28px 20px 22px;text-align:center}#arrival-journey .aj-success-icon{width:62px;height:62px;border-radius:50%;color:var(--aj-green);background:var(--aj-soft);display:grid;place-items:center;margin:0 auto 18px}#arrival-journey .aj-success-icon svg{width:28px;height:28px}#arrival-journey .aj-success h2{font-size:23px;font-weight:500;margin-bottom:10px}#arrival-journey .aj-success p{font-size:12px;color:var(--aj-muted);line-height:1.8}#arrival-journey .aj-success-summary{margin:23px 0;background:var(--aj-soft);border-radius:14px;padding:13px;text-align:left}#arrival-journey .aj-live-panel{position:relative;margin:0 15px;border-radius:16px;background:#e5e0d4;height:205px;overflow:hidden;display:flex;align-items:center;justify-content:center}#arrival-journey .aj-live-panel .aj-art{width:100%;height:100%}#arrival-journey .aj-live-label{position:absolute;top:12px;left:12px;padding:5px 8px;background:var(--aj-red);color:#fff;border-radius:6px;font-size:11px}#arrival-journey .aj-live-caption{position:absolute;bottom:12px;left:12px;right:12px;background:#fffdf6ed;color:#5c564b;padding:9px 11px;font-size:12px;border-radius:9px}#arrival-journey .aj-demo-controls{display:flex;gap:8px;flex-wrap:wrap;padding:12px 5px 0}#arrival-journey .aj-demo-control{padding:8px 12px;border:1px solid var(--aj-line);border-radius:18px;font-size:11px;color:var(--aj-muted);min-height:34px}#arrival-journey .aj-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+#arrival-journey .aj-art{position:relative;overflow:hidden;background:#eeece5;isolation:isolate;color:#555}#arrival-journey .aj-art:before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,#fff5,transparent 55%,#7c73550a)}#arrival-journey .aj-art:after{content:"";position:absolute;left:16%;right:13%;bottom:13%;height:7%;border-radius:50%;background:#796c5830;filter:blur(5px);z-index:-1}#arrival-journey .aj-art[data-art=scarf]{background:#eee5da}#arrival-journey .aj-art[data-art=coat]{background:#e2e5dc}#arrival-journey .aj-art[data-art=bag]{background:#e9e2d6}#arrival-journey .aj-art[data-art=mug]{background:#e8e6dc}#arrival-journey .aj-art[data-art=tray]{background:#e8dfd1}#arrival-journey .aj-art[data-art=vase]{background:#e0e3da}#arrival-journey .aj-art[data-art=lamp]{background:#e9dfcf}
+#arrival-journey .aj-object{position:absolute;inset:12% 12% 14%;filter:drop-shadow(3px 8px 6px #64543b24)}#arrival-journey .aj-coat-body{position:absolute;inset:12% 9% 0;background:repeating-linear-gradient(0deg,#7a806300 0 2px,#57604713 2px 3px),linear-gradient(110deg,#879078,#a2a98e 55%,#7f896f);clip-path:polygon(26% 0,40% 0,50% 8%,60% 0,74% 0,100% 24%,87% 54%,75% 43%,78% 100%,22% 100%,25% 43%,13% 54%,0 24%)}#arrival-journey .aj-coat-seam{position:absolute;left:50%;top:17%;height:81%;width:1px;background:#5c685a50}#arrival-journey .aj-coat-button{position:absolute;top:32%;left:47%;width:7%;height:2%;background:#5c685a80;box-shadow:0 15px #5c685a80,0 30px #5c685a80}#arrival-journey .aj-coat-collar{position:absolute;left:39%;top:10%;width:23%;height:12%;border:3px solid #788169;border-radius:3px 3px 8px 8px}
+#arrival-journey .aj-scarf-body{position:absolute;left:22%;top:3%;width:49%;height:91%;background:repeating-linear-gradient(90deg,#d4aa8522 0 2px,#f3d6b520 2px 4px),linear-gradient(90deg,#ad8367,#c69f80 48%,#b68b6a);transform:rotate(-17deg);border-radius:3px;box-shadow:inset -6px 0 8px #805b3820}#arrival-journey .aj-scarf-fold{position:absolute;left:17%;top:20%;width:65%;height:26%;background:linear-gradient(0deg,#b99171,#d0ad8a);transform:rotate(-17deg);border-radius:7px;box-shadow:0 4px 4px #704d3220}#arrival-journey .aj-scarf-fringe{position:absolute;left:20%;bottom:0;width:49%;height:14%;background:repeating-linear-gradient(90deg,#b98e6c 0 2px,transparent 2px 5px);transform:rotate(-17deg)}
+#arrival-journey .aj-bag-body{position:absolute;left:15%;top:31%;width:70%;height:65%;background:repeating-linear-gradient(90deg,#b2a58611 0 2px,#fff1 2px 3px),linear-gradient(110deg,#d3c9ac,#e0d8c2 58%,#c1b596);border-radius:3px 3px 10px 10px;transform:rotate(-6deg)}#arrival-journey .aj-bag-handle{position:absolute;left:35%;top:5%;width:34%;height:43%;border:5px solid #bfb393;border-bottom:0;border-radius:50% 50% 0 0;transform:rotate(-6deg)}#arrival-journey .aj-bag-patch{position:absolute;left:38%;top:53%;width:27%;height:18%;border:1px solid #b6a88b;transform:rotate(-6deg);color:#99896b;display:grid;place-items:center;font:8px Georgia,serif;letter-spacing:1px}
+#arrival-journey .aj-mug-body{position:absolute;left:17%;top:29%;width:54%;height:57%;border-radius:5% 6% 30% 30%;background:radial-gradient(ellipse at 30% 20%,#f4efe0,#c8c3ad 75%,#aaa28e);box-shadow:inset -5px 0 7px #837a5920}#arrival-journey .aj-mug-top{position:absolute;left:17%;top:22%;width:54%;height:17%;border:4px solid #ded8c4;border-radius:50%;background:radial-gradient(ellipse,#76634d,#a29173)}#arrival-journey .aj-mug-handle{position:absolute;left:62%;top:34%;width:25%;height:33%;border:7px solid #c6bea6;border-left:0;border-radius:0 50% 50% 0;z-index:-1}#arrival-journey .aj-mug-line{position:absolute;left:25%;top:55%;width:36%;height:1px;background:#aaa08470}
+#arrival-journey .aj-tray-body{position:absolute;left:5%;top:23%;width:90%;height:61%;border-radius:50%;background:repeating-radial-gradient(ellipse at 50% 50%,#9c6e4315 0 2px,#e0bd8a20 2px 5px),linear-gradient(140deg,#b78b58,#d7b685 50%,#ad7c45);border:6px solid #bc945f;box-shadow:inset 0 4px 9px #73502e33;transform:rotate(-13deg)}#arrival-journey .aj-tray-dot{position:absolute;width:25%;height:22%;border-radius:50%;background:#e3ddcf;left:24%;top:37%;transform:rotate(-13deg);box-shadow:2px 5px 4px #725b3f33}
+#arrival-journey .aj-vase-body{position:absolute;left:26%;top:28%;width:48%;height:65%;border-radius:15% 15% 40% 40%;background:linear-gradient(100deg,#acae99,#d2d0b7 45%,#989e85)}#arrival-journey .aj-vase-neck{position:absolute;left:38%;top:2%;width:24%;height:37%;background:linear-gradient(100deg,#adb099,#c8c9b0,#a3a78c);border-radius:4px 4px 0 0}#arrival-journey .aj-vase-lip{position:absolute;left:37%;top:1%;width:26%;height:6%;border-radius:50%;background:#676e5b;border:3px solid #b4b69d}
+#arrival-journey .aj-lamp-shade{position:absolute;left:10%;top:8%;width:80%;height:46%;border-radius:50% 50% 6% 6%;background:linear-gradient(100deg,#ad6547,#d78a62 50%,#af6647);z-index:2}#arrival-journey .aj-lamp-stem{position:absolute;left:47%;top:47%;width:7%;height:38%;background:linear-gradient(90deg,#836a47,#c6ac78,#856e49)}#arrival-journey .aj-lamp-base{position:absolute;left:27%;top:81%;width:47%;height:11%;background:linear-gradient(0deg,#a35e40,#c88059);border-radius:50%}
+#arrival-journey .aj-phone:has(.aj-overlay) .aj-screen{max-height:650px;min-height:650px;overflow:hidden}
+@keyframes aj-rise{from{transform:translateY(22px)}to{transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){#arrival-journey .aj-sheet{animation:none}}
+@media(pointer:coarse){#arrival-journey button{min-height:44px}#arrival-journey .aj-close{min-width:44px}#arrival-journey .aj-check{width:26px;height:26px}}
+@media(max-width:610px){#arrival-journey .aj-workbench{grid-template-columns:minmax(0,420px);gap:14px;padding-top:6px}#arrival-journey .aj-rail{padding:0}#arrival-journey .aj-rail h2{font-size:20px;margin:5px 0 12px}#arrival-journey .aj-rail h2 br{display:none}#arrival-journey .aj-steps{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#arrival-journey .aj-step{font-size:11px;padding:7px 4px;gap:5px;justify-content:center}#arrival-journey .aj-step em{width:18px;height:18px;font-size:11px;flex:0 0 auto}#arrival-journey .aj-stage-note{max-width:none;padding:9px 4px 0;font-size:11px}#arrival-journey .aj-reset{margin-top:4px;display:inline-flex;padding:5px;font-size:11px}#arrival-journey .aj-demo-bar{margin-bottom:8px}#arrival-journey .aj-phone{border-radius:23px}}
+@media(max-width:350px){#arrival-journey .aj-steps{grid-template-columns:repeat(3,minmax(0,1fr))}#arrival-journey .aj-step{gap:3px;font-size:11px}#arrival-journey .aj-body{padding:14px 12px}#arrival-journey .aj-banner{padding:17px 13px}#arrival-journey .aj-banner h3{font-size:21px;max-width:190px}#arrival-journey .aj-banner p{max-width:180px}#arrival-journey .aj-paper-calendar{right:7px;width:78px;opacity:.8}#arrival-journey .aj-gallery .aj-art{height:82px}#arrival-journey .aj-detail-hero .aj-gallery .aj-art{height:130px}#arrival-journey .aj-person-name{font-size:13px}#arrival-journey .aj-top-tabs{gap:20px}#arrival-journey .aj-primary{padding:10px 14px}}
+/* Compact launch entrance, independent of the surrounding market layout. */
+#arrival-journey .aj-arrivals-promo{position:relative;isolation:isolate;display:block;width:100%;height:112px;padding:0;margin:0 0 20px;overflow:hidden;border-radius:15px;text-align:left;color:#fff;background:radial-gradient(ellipse at 13% 0,#d7f8ff99,transparent 50%),radial-gradient(ellipse at 100% 130%,#faffb6bd,transparent 48%),linear-gradient(115deg,#78d7ee,#299cde 55%,#1e9bed)}
+#arrival-journey .aj-arrivals-promo::before{content:"";position:absolute;left:6%;top:-32%;height:170%;width:21%;background:linear-gradient(90deg,#fff0 0 24%,#ffffff24 25% 44%,#fff0 45% 62%,#ffffff18 63% 80%,#fff0 81%);transform:rotate(-17deg);z-index:-1}
+#arrival-journey .aj-arrivals-promo::after{content:"";position:absolute;right:13px;top:14px;width:5px;height:5px;border-radius:50%;background:#fffde4;box-shadow:-12px 56px 9px 2px #ffffff60,-48px 14px 7px 2px #ffffff45,-67px 80px 12px 5px #ffffff30;z-index:-1}
+#arrival-journey .aj-promo-scene{position:absolute;inset:0 auto 0 0;width:122px;pointer-events:none}
+#arrival-journey .aj-promo-art{position:absolute;left:0;top:50%;transform:translateY(-50%);width:122px;height:118px;overflow:visible}
+#arrival-journey .aj-promo-spark{position:absolute;clip-path:polygon(50% 0,65% 35%,100% 50%,65% 65%,50% 100%,35% 65%,0 50%,35% 35%);background:radial-gradient(circle at 35% 30%,#fff,#e1f9ff);transform:rotate(12deg)}
+#arrival-journey .aj-promo-spark.spark-a{width:15px;height:15px;left:9px;top:18px}
+#arrival-journey .aj-promo-spark.spark-b{width:12px;height:12px;left:107px;top:13px;background:#fff7a1}
+#arrival-journey .aj-promo-copy{position:absolute;left:124px;right:8px;top:27px;pointer-events:none}
+#arrival-journey .aj-promo-new{position:absolute;left:3px;top:-18px;color:#326b50;background:#fcffad;border-radius:4px;padding:2px 5px;font-size:10px;line-height:1.2;font-weight:500;transform:rotate(-8deg)}
+#arrival-journey .aj-promo-title{display:block;font-size:29px;font-weight:500;line-height:1.15;letter-spacing:1px;color:#fffdf7;text-shadow:0 2px 2px #0873b24d;white-space:nowrap}
+#arrival-journey .aj-promo-subtitle{display:block;font-size:11px;line-height:1.5;margin-top:3px;color:#07426b;white-space:nowrap}
+#arrival-journey .aj-promo-cta{position:absolute;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:2px;padding:0 12px 0 17px;min-width:93px;height:31px;border-radius:19px 0 0 0;background:linear-gradient(110deg,#fffedc,#f2ffb7);color:#076397;font-size:13px;font-weight:500}
+#arrival-journey .aj-promo-cta svg{width:13px;height:13px}
+@media(max-width:359px){#arrival-journey .aj-promo-scene{width:107px}#arrival-journey .aj-promo-art{left:-4px;width:110px;height:110px}#arrival-journey .aj-promo-copy{left:105px;top:27px}#arrival-journey .aj-promo-title{font-size:26px}#arrival-journey .aj-promo-subtitle{font-size:11px;letter-spacing:-.5px}#arrival-journey .aj-promo-spark.spark-b{left:94px}}
+
+/* Deployed site layout. The original inline preview retains its natural height. */
+html[data-arrivals-site] {
+  color-scheme: light dark;
+  background: light-dark(#f7f5f3, #171718);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+html[data-arrivals-site], html[data-arrivals-site] body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+html[data-arrivals-site] body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+html[data-arrivals-site] button { touch-action: manipulation; }
+html[data-arrivals-site] #arrival-journey { height: 100vh; height: 100dvh; }
+html[data-arrivals-site] #arrival-journey .aj-workbench { height: 100%; padding: 18px 12px; }
+html[data-arrivals-site] #arrival-journey .aj-preview { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+html[data-arrivals-site] #arrival-journey .aj-phone { flex: 1; min-height: 0; overflow: hidden; }
+html[data-arrivals-site] #arrival-journey .aj-screen,
+html[data-arrivals-site] #arrival-journey .aj-phone:has(.aj-overlay) .aj-screen {
+  height: 100%; min-height: 0; max-height: none; overflow: hidden;
+}
+html[data-arrivals-site] #arrival-journey .aj-screen > .aj-status,
+html[data-arrivals-site] #arrival-journey .aj-screen-head,
+html[data-arrivals-site] #arrival-journey .aj-screen-foot { flex: 0 0 auto; background: var(--aj-bg); }
+html[data-arrivals-site] #arrival-journey .aj-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: clip;
+  overscroll-behavior-y: contain; scrollbar-width: thin; -webkit-overflow-scrolling: touch;
+}
+html[data-arrivals-site] #arrival-journey .aj-screen-foot { box-shadow: 0 -4px 20px #00000004; }
+html[data-arrivals-site] #arrival-journey .aj-phone:has(.aj-overlay) .aj-screen-foot { box-shadow: none; }
+html[data-arrivals-site] #arrival-journey .aj-overlay { overflow: hidden; }
+html[data-arrivals-site] #arrival-journey .aj-sheet {
+  max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; padding-bottom: 22px;
+}
+html[data-arrivals-site] #arrival-journey .aj-sheet-head { position: sticky; top: -19px; background: var(--aj-bg); z-index: 1; padding-top: 6px; }
+html[data-arrivals-site] #arrival-journey .aj-sheet .aj-sku-actions { position: sticky; bottom: -22px; padding: 12px 0; background: var(--aj-bg); }
+html[data-arrivals-site] #arrival-journey .aj-sheet .aj-close { min-width: 44px; min-height: 44px; }
+html[data-arrivals-site] #arrival-journey .aj-person-info { overflow-wrap: anywhere; }
+html[data-arrivals-site] #arrival-journey .aj-mobile-bar { display: none; }
+html[data-arrivals-site] #arrival-journey .aj-tools-heading { font-size: 13px; font-weight: 500; margin: 22px 0 12px; }
+html[data-arrivals-site] #arrival-journey .aj-tools-stages { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+html[data-arrivals-site] #arrival-journey .aj-tools-stage { border-radius: 11px; background: var(--aj-soft); min-height: 46px; padding: 9px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+html[data-arrivals-site] #arrival-journey .aj-tools-stage span { font-size: 11px; color: var(--aj-muted); }
+html[data-arrivals-site] #arrival-journey .aj-tools-stage[aria-pressed=true] { background: var(--aj-pink); color: var(--aj-red); }
+html[data-arrivals-site] #arrival-journey .aj-tools-time { display: grid; gap: 8px; }
+html[data-arrivals-site] #arrival-journey .aj-tools-reset { margin-top: 18px; }
+
+@media (max-width: 700px), (max-width: 1000px) and (max-height: 500px) {
+  html[data-arrivals-site] { background: light-dark(#fff, #1b1b1c); }
+  html[data-arrivals-site] #arrival-journey { display: flex; flex-direction: column; }
+  html[data-arrivals-site] #arrival-journey .aj-mobile-bar {
+    display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between;
+    min-height: 44px; padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+    background: var(--aj-soft); color: var(--aj-muted); font-size: 12px; border-bottom: 1px solid var(--aj-line);
+  }
+  html[data-arrivals-site] #arrival-journey .aj-demo-tag { font-size: 10px; letter-spacing: 1px; margin-left: 6px; }
+  html[data-arrivals-site] #arrival-journey .aj-mobile-bar button { min-height: 44px; padding: 0 0 0 16px; font-size: 12px; color: var(--aj-ink); }
+  html[data-arrivals-site] #arrival-journey .aj-rail,
+  html[data-arrivals-site] #arrival-journey .aj-demo-bar,
+  html[data-arrivals-site] #arrival-journey .aj-demo-controls,
+  html[data-arrivals-site] #arrival-journey .aj-status { display: none; }
+  html[data-arrivals-site] #arrival-journey .aj-workbench {
+    flex: 1 1 auto; min-height: 0; height: auto; display: block; width: 100%; max-width: none; margin: 0; padding: 0;
+  }
+  html[data-arrivals-site] #arrival-journey .aj-phone { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  html[data-arrivals-site] #arrival-journey .aj-top { padding: 6px 16px; min-height: 57px; }
+  html[data-arrivals-site] #arrival-journey .aj-top-action { min-width: 44px; min-height: 44px; }
+  html[data-arrivals-site] #arrival-journey .aj-top-action:last-child { justify-content: flex-end; }
+  html[data-arrivals-site] #arrival-journey .aj-top-tabs { padding: 0 16px 6px; gap: 25px; }
+  html[data-arrivals-site] #arrival-journey .aj-phone button { min-height: 44px; }
+  html[data-arrivals-site] #arrival-journey .aj-primary { font-size: 15px; min-height: 46px; }
+  html[data-arrivals-site] #arrival-journey .aj-secondary { font-size: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-text-link { font-size: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-body { padding: 16px; }
+  html[data-arrivals-site] #arrival-journey .aj-footer-action { padding: 10px 16px max(12px, env(safe-area-inset-bottom, 0px)); }
+  html[data-arrivals-site] #arrival-journey .aj-footer-action .aj-subtle { font-size: 11px; margin-top: 6px; }
+  html[data-arrivals-site] #arrival-journey .aj-bottom-nav { padding: 10px 12px max(12px, env(safe-area-inset-bottom, 0px)); }
+  html[data-arrivals-site] #arrival-journey .aj-banner { min-height: 214px; padding: 19px 17px; margin-bottom: 20px; }
+  html[data-arrivals-site] #arrival-journey .aj-banner h3 { font-size: 25px; max-width: 245px; }
+  html[data-arrivals-site] #arrival-journey .aj-banner p { font-size: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-banner .aj-primary { font-size: 14px; }
+  html[data-arrivals-site] #arrival-journey .aj-rec-item .aj-art { height: auto; aspect-ratio: .88; }
+  html[data-arrivals-site] #arrival-journey .aj-rec-item h3 { font-size: 14px; }
+  html[data-arrivals-site] #arrival-journey .aj-intro-copy,
+  html[data-arrivals-site] #arrival-journey .aj-detail-heading p,
+  html[data-arrivals-site] #arrival-journey .aj-sheet-copy { font-size: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-intro-title { font-size: 24px; }
+  html[data-arrivals-site] #arrival-journey .aj-candidate { padding: 14px 0; }
+  html[data-arrivals-site] #arrival-journey .aj-candidate label { min-height: 48px; }
+  html[data-arrivals-site] #arrival-journey .aj-check { width: 24px; height: 24px; }
+  html[data-arrivals-site] #arrival-journey .aj-candidate-preview { padding-left: 49px; }
+  html[data-arrivals-site] #arrival-journey .aj-candidate-preview .aj-art { width: 50px; height: 52px; }
+  html[data-arrivals-site] #arrival-journey .aj-candidate-preview p { min-width: 0; }
+  html[data-arrivals-site] #arrival-journey .aj-cal-heading { margin: 15px 16px 9px; }
+  html[data-arrivals-site] #arrival-journey .aj-days { padding: 0 6px 12px; gap: 0; }
+  html[data-arrivals-site] #arrival-journey .aj-day { min-width: 0; min-height: 74px; border-radius: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-day b { font-size: 18px; }
+  html[data-arrivals-site] #arrival-journey .aj-filter-row { padding: 0 12px 12px; gap: 6px; }
+  html[data-arrivals-site] #arrival-journey .aj-filter { padding: 8px 14px; font-size: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-person-name { font-size: 15px; }
+  html[data-arrivals-site] #arrival-journey .aj-person-meta { font-size: 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-event { padding: 14px 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-event-title { font-size: 17px; }
+  html[data-arrivals-site] #arrival-journey .aj-event-desc { font-size: 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-gallery .aj-art { height: auto; aspect-ratio: 1; }
+  html[data-arrivals-site] #arrival-journey .aj-detail-hero .aj-gallery .aj-art { height: auto; aspect-ratio: .7; }
+  html[data-arrivals-site] #arrival-journey .aj-gallery-price { font-size: 14px; }
+  html[data-arrivals-site] #arrival-journey .aj-event-actions .aj-secondary { min-height: 44px; font-size: 12px; padding: 8px 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-product-info h3 { font-size: 14px; }
+  html[data-arrivals-site] #arrival-journey .aj-product-info p { font-size: 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-save-button { flex: 0 0 44px; }
+  html[data-arrivals-site] #arrival-journey .aj-mini-button { font-size: 12px; padding: 8px 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-sheet { padding: 14px 18px max(18px, env(safe-area-inset-bottom, 0px)); border-radius: 22px 22px 0 0; }
+  html[data-arrivals-site] #arrival-journey .aj-sheet-head { top: -14px; margin-bottom: 13px; }
+  html[data-arrivals-site] #arrival-journey .aj-size { font-size: 14px; min-height: 46px; }
+  html[data-arrivals-site] #arrival-journey .aj-spec-detail { font-size: 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-sheet .aj-sku-actions { bottom: -18px; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+  html[data-arrivals-site] #arrival-journey .aj-sku-actions .aj-secondary { min-width: 88px; }
+  html[data-arrivals-site] #arrival-journey .aj-toast { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (max-width: 359px) {
+  html[data-arrivals-site] #arrival-journey .aj-body { padding: 13px 12px; }
+  html[data-arrivals-site] #arrival-journey .aj-banner h3 { font-size: 23px; max-width: 205px; }
+  html[data-arrivals-site] #arrival-journey .aj-paper-calendar { width: 72px; right: 10px; bottom: 20px; }
+  html[data-arrivals-site] #arrival-journey .aj-person-name { font-size: 14px; }
+  html[data-arrivals-site] #arrival-journey .aj-person-meta { font-size: 11px; }
+  html[data-arrivals-site] #arrival-journey .aj-candidate-preview { padding-left: 0; }
+  html[data-arrivals-site] #arrival-journey .aj-product-row { gap: 8px; }
+  html[data-arrivals-site] #arrival-journey .aj-product-row > .aj-art { width: 70px; height: 81px; }
+  html[data-arrivals-site] #arrival-journey .aj-filter-row { padding-inline: 10px; }
+  html[data-arrivals-site] #arrival-journey .aj-event-status { font-size: 11px; }
+}
+
+@media (max-height: 520px) {
+  html[data-arrivals-site] #arrival-journey .aj-screen-foot .aj-subtle { display: none; }
+  html[data-arrivals-site] #arrival-journey .aj-workbench { padding-block: 4px; }
+  html[data-arrivals-site] #arrival-journey .aj-sheet { max-height: 100%; }
+}
+
+</style>
+<div id="arrival-journey">
+  <div class="aj-mobile-bar" hidden><span>上新日历 <span class="aj-demo-tag">DEMO</span></span><button data-action="tools" aria-haspopup="dialog">演示工具</button></div>
+  <div class="aj-workbench viz-dotted-background">
+    <aside class="aj-rail" aria-label="用户旅程演示导航">
+      <div class="aj-eyebrow">INTERACTIVE JOURNEY</div>
+      <h2>把喜欢，<br>排进日历。</h2>
+      <nav class="aj-steps" aria-label="切换旅程阶段"></nav>
+      <p class="aj-stage-note"></p>
+      <button class="aj-reset" data-action="reset"><i data-lucide="rotate-ccw" aria-hidden="true"></i>重新体验</button>
+    </aside>
+    <div class="aj-preview">
+      <div class="aj-demo-bar"><span>概念演示 · 商家、商品与插画均为示例</span><span class="aj-demo-clock"></span></div>
+      <div class="aj-phone" aria-label="市集上新日历产品原型"></div>
+      <div class="aj-demo-controls" aria-label="演示时间与状态控制"></div>
+    </div>
+  </div>
+  <div class="aj-sr" role="status" aria-live="polite"></div>
+</div>
+<script>
+(()=>{
+const root=document.getElementById('arrival-journey');
+const phone=root.querySelector('.aj-phone');
+const rail=root.querySelector('.aj-steps');
+const hint=root.querySelector('.aj-stage-note');
+const controls=root.querySelector('.aj-demo-controls');
+const clockLabel=root.querySelector('.aj-demo-clock');
+const announcer=root.querySelector('[role="status"]');
+const standalone=document.documentElement.hasAttribute('data-arrivals-site');
+const mobileBar=root.querySelector('.aj-mobile-bar');
+const scrollPositions=new Map();
+let renderedScreenKey='';
+const owners={
+ shan:{id:'shan',name:'山间来信',type:'shop',kind:'原创店铺',avatar:'山',sub:'店铺上新',relation:'账号已关注 · 曾在这家买过',account:'山间来信主理人',brief:'日常新中式，每一季慢慢更新。',products:['coat','scarf','bag']},
+ buyer:{id:'buyer',name:'阿梨的生活选物',type:'buyer',kind:'买手',avatar:'梨',sub:'买手选品',relation:'账号已关注 · 看过她的选品',account:'阿梨的生活选物',brief:'分享好用、耐看的日常小物。',products:['mug','lamp','tray']},
+ clay:{id:'clay',name:'壹隅器物',type:'shop',kind:'器物店铺',avatar:'器',sub:'店铺上新',relation:'账号已关注 · 收藏过它的杯子',account:'壹隅器物',brief:'给喝茶、喝咖啡的小片刻。',products:['mug','tray','vase']}
+};
+const products={
+ coat:{id:'coat',name:'雾青盘扣短外套',art:'coat',price:329,seller:'山间来信',release:13*1440+20*60,variants:[{name:'S · 雾青',stock:0,detail:'S 码本次暂无库存'},{name:'M · 雾青',stock:10,detail:'衣长 57 cm · 成衣胸围 108 cm'},{name:'L · 雾青',stock:8,detail:'衣长 59 cm · 成衣胸围 112 cm'}],note:'短款剪裁 · 棉麻混纺'},
+ scarf:{id:'scarf',name:'栗子色羊毛围巾',art:'scarf',price:159,seller:'山间来信',release:13*1440+20*60,variants:[{name:'栗子色',stock:10,detail:'180 × 35 cm · 羊毛混纺'}],note:'柔和栗色 · 轻暖叠搭'},
+ bag:{id:'bag',name:'日常帆布小提袋',art:'bag',price:89,seller:'山间来信',release:13*1440+20*60,variants:[{name:'燕麦色',stock:20,detail:'宽 28 × 高 25 cm'}],note:'轻量帆布 · 燕麦本色'},
+ mug:{id:'mug',name:'云白手作咖啡杯',art:'mug',price:128,seller:'壹隅器物',release:12*1440+12*60,variants:[{name:'云白 · 250 mL',stock:12,detail:'手工施釉，每只纹理略有差异'},{name:'暖灰 · 250 mL',stock:0,detail:'暖灰色暂时售罄'}],note:'手工施釉 · 250 mL'},
+ tray:{id:'tray',name:'橡木小圆托盘',art:'tray',price:98,seller:'壹隅器物',release:12*1440+12*60,variants:[{name:'原木色 · 18 cm',stock:15,detail:'直径 18 cm · 请勿长时间浸泡'}],note:'原木纹理 · 日常承托'},
+ vase:{id:'vase',name:'青苔小花器',art:'vase',price:168,seller:'壹隅器物',release:12*1440+12*60,variants:[{name:'青苔色',stock:9,detail:'高度 16 cm · 瓶口直径 4 cm'}],note:'小口花器 · 自然釉色'},
+ lamp:{id:'lamp',name:'落日蘑菇台灯',art:'lamp',price:239,seller:'读灯工作室',release:11*1440+12*60,variants:[{name:'陶土橘',stock:9,detail:'高度 24 cm · 暖白光 · 插电使用'}],note:'暖光照明 · 陶土橘色'}
+};
+const events={
+ shan:{id:'shan',owner:'shan',title:'把初冬穿得轻一点',desc:'三件日常单品，给早晚微凉的日子。',type:'launch',time:13*1440+20*60,pids:['coat','scarf','bag'],published:'今天发布'},
+ buyer:{id:'buyer',owner:'buyer',title:'周四晚，给家添一点暖',desc:'这一期选了杯子、木托盘和一盏暖灯。',type:'live',time:12*1440+20*60+30,pids:['mug','lamp','tray'],published:'今天发布'},
+ clay:{id:'clay',owner:'clay',title:'日常器物 · 云白与青苔',desc:'一杯咖啡、一枝花，留一点自己的时间。',type:'launch',time:12*1440+12*60,pids:['mug','tray','vase'],published:'今天发布'}
+};
+const stepNames=['发现入口','选择订阅','浏览日历','上新预告','开售回访','选购下单','管理订阅'];
+const stepNotes=['从市集推荐页认识上新日历。','自己选择想追踪的店铺或买手，默认不勾选。','按日期查看，整组浏览一家店或一位买手的更新。','查看本次选品，收藏单品，单独订阅本次提醒。','演示推进到开售后，回到自己已经表达过的兴趣。','选规格、查看按店铺计算的费用，完成模拟订单。','账号关注、上新订阅、单次提醒分别管理。'];
+function defaults(){return{v:2,step:0,screen:'market',subs:[],draft:[],event:'shan',day:0,filter:'all',now:12*1440+19*60+30,reminders:[],saved:[],seen:[],bag:[],orders:[],modal:null,product:'coat',variant:null,reminderConsent:true,delayed:false,returnScreen:'calendar',returnStep:2};}
+let state=defaults(),toast='',toastTimer=null,focusReturn=null;
+function restore(snapshot){
+ const s=snapshot?.privateContent;if(!s||s.v!==2)return;
+ const allowedScreens=['market','subscribe','calendar','event','bag','checkout','success','manage','saved','reminders'];
+ const ids=(v,dict)=>Array.isArray(v)?[...new Set(v.filter(x=>Object.hasOwn(dict,x)))]:[];
+ const cleanItems=items=>Array.isArray(items)?items.filter(i=>i&&Object.hasOwn(products,i.pid)&&Number.isInteger(i.variant)&&products[i.pid].variants[i.variant]).map(i=>({pid:i.pid,variant:i.variant})).slice(0,30):[];
+ const bag=cleanItems(s.bag);
+ state={...defaults(),step:Number.isInteger(s.step)&&s.step>=0&&s.step<7?s.step:0,screen:allowedScreens.includes(s.screen)?s.screen:'market',subs:ids(s.subs,owners),draft:ids(s.draft,owners),event:Object.hasOwn(events,s.event)?s.event:'shan',day:Number.isInteger(s.day)&&s.day>=12&&s.day<=18?s.day:0,filter:['all','shop','buyer'].includes(s.filter)?s.filter:'all',now:Number.isFinite(s.now)&&s.now>=12*1440&&s.now<=19*1440?s.now:defaults().now,reminders:ids(s.reminders,events),saved:ids(s.saved,products),seen:ids(s.seen,events),bag,orders:Array.isArray(s.orders)?s.orders.filter(o=>o&&Number.isFinite(o.total)&&Array.isArray(o.items)).map(o=>({items:cleanItems(o.items),total:o.total})).filter(o=>o.items.length).slice(-5):[],delayed:!!s.delayed};
+ if(state.screen==='success'&&!state.orders.length)state.screen='bag';
+ if(state.screen==='checkout'&&!state.bag.length)state.screen='bag';
+}
+restore(window.openai?.widgetState);
+function save(){if(window.openai?.setWidgetState)Promise.resolve(window.openai.setWidgetState({modelContent:{prototype:'市集上新日历',stage:stepNames[state.step],screen:state.screen,subscriptions:state.subs.map(id=>owners[id].name),reminders:state.reminders.map(id=>events[id].title),savedProducts:state.saved.map(id=>products[id].name),bagCount:state.bag.length,simulatedOrders:state.orders.length},privateContent:state})).catch(()=>{});}
+const ico=name=>`<span class="aj-icon"><i data-lucide="${name}" aria-hidden="true"></i></span>`;
+function button(action,label,cls='',value='',extra=''){return `<button class="${cls}" data-action="${action}" ${value!==''?`data-value="${value}"`:''} ${extra}>${label}</button>`;}
+function art(id){const type=products[id].art;const shapes={coat:'<div class="aj-coat-body"></div><div class="aj-coat-seam"></div><div class="aj-coat-collar"></div><div class="aj-coat-button"></div>',scarf:'<div class="aj-scarf-body"></div><div class="aj-scarf-fringe"></div><div class="aj-scarf-fold"></div>',bag:'<div class="aj-bag-handle"></div><div class="aj-bag-body"></div><div class="aj-bag-patch">LETTER</div>',mug:'<div class="aj-mug-handle"></div><div class="aj-mug-body"></div><div class="aj-mug-top"></div><div class="aj-mug-line"></div>',tray:'<div class="aj-tray-body"></div><div class="aj-tray-dot"></div>',vase:'<div class="aj-vase-body"></div><div class="aj-vase-neck"></div><div class="aj-vase-lip"></div>',lamp:'<div class="aj-lamp-shade"></div><div class="aj-lamp-stem"></div><div class="aj-lamp-base"></div>'};return `<div class="aj-art" data-art="${type}" role="img" aria-label="${products[id].name}示意插画"><div class="aj-object">${shapes[type]}</div></div>`;}
+function avatar(id){return `<span class="aj-avatar" data-owner="${id}" aria-hidden="true">${owners[id].avatar}</span>`;}
+function timeOf(ev){return ev.time+(state.delayed&&ev.id==='shan'?1440:0);}
+function releaseOf(p){return p.release+(state.delayed&&['coat','scarf','bag'].includes(p.id)?1440:0);}
+function date(t){return `11.${Math.floor(t/1440)} ${String(Math.floor(t%1440/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
+function statusOf(ev){const t=timeOf(ev);return state.now<t?'upcoming':ev.type==='live'?(state.now<t+90?'live':'ended'):'open';}
+function statusLabel(ev){const status=statusOf(ev);return status==='upcoming'?(ev.type==='live'?'待开播':'待开售'):status==='live'?'正在直播':status==='ended'?'直播已结束':'已上新';}
+function stageTop(title,back='calendar',right='bag'){return `<div class="aj-top">${button(back,ico('chevron-left')+'返回','aj-top-action')}<h2>${title}</h2>${right==='bag'?bagButton():button('manage',ico('sliders-horizontal'),'aj-top-action','','aria-label="管理订阅"')}</div>`;}
+function statusBar(){return `<div class="aj-status"><span>${date(state.now).split(' ')[1]}</span><span class="aj-status-icons">${ico('signal')}${ico('wifi')}${ico('battery-full')}</span></div>`;}
+function bagButton(){return button('bag',ico('shopping-bag')+(state.bag.length?`<span class="aj-count">${state.bag.length}</span>`:''),'aj-top-action','','aria-label="购物袋"');}
+function nav(){return `<div class="aj-bottom-nav" aria-label="应用位置示意"><span>${ico('house')}首页</span><span class="aj-current">${ico('store')}市集</span><span><span class="aj-plus">${ico('plus')}</span></span><span>${ico('message-circle')}消息</span><span>${ico('user-round')}我</span></div>`;}
+function marketHeader(active){return `<div class="aj-top"><span class="aj-market-title">市集</span>${bagButton()}</div><div class="aj-top-tabs" role="group" aria-label="市集内容"><button data-action="market" aria-pressed="${active==='market'}">推荐</button><button data-action="calendar" aria-pressed="${active==='calendar'}">上新${state.subs.some(id=>!state.seen.includes(id))?'<span class="aj-new-dot"></span>':''}</button>${button('manage',ico('sliders-horizontal')+'我的订阅','aj-text-link')}</div>`;}
+function arrivalsBanner(){return button(state.subs.length?'calendar':'subscribe',`<span class="aj-promo-scene" aria-hidden="true"><svg class="aj-promo-art" viewBox="0 0 130 125" fill="none"><defs><linearGradient id="aj-star-fill" x1="22" y1="10" x2="94" y2="113" gradientUnits="userSpaceOnUse"><stop stop-color="#fffef0"/><stop offset=".38" stop-color="#fff7a6"/><stop offset=".75" stop-color="#ffe967"/><stop offset="1" stop-color="#f4ce40"/></linearGradient><radialGradient id="aj-star-shine" cx="0" cy="0" r="1" gradientTransform="translate(47 36) rotate(50) scale(49 48)" gradientUnits="userSpaceOnUse"><stop stop-color="#fffef5" stop-opacity=".95"/><stop offset="1" stop-color="#fff9b2" stop-opacity="0"/></radialGradient><linearGradient id="aj-page-fill" x1="84" y1="73" x2="118" y2="115" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset="1" stop-color="#f1f7e6"/></linearGradient><filter id="aj-star-shadow" x="-20%" y="-20%" width="150%" height="160%"><feDropShadow dx="2" dy="7" stdDeviation="4" flood-color="#167db9" flood-opacity=".27"/></filter></defs><g transform="rotate(-13 59 61)" filter="url(#aj-star-shadow)"><path d="M55 10C59 4 64 6 67 13L78 35C80 39 83 41 87 42L109 48C118 50 119 56 111 62L92 76C89 78 87 81 87 85L86 107C86 117 80 120 73 113L57 98C54 95 51 94 47 95L25 100C16 102 12 97 17 89L28 69C30 65 30 61 28 58L17 38C13 30 17 25 26 27L48 31C52 32 53 29 55 25L55 10Z" fill="#e5c64e" transform="translate(1 2)"/><path d="M55 10C59 4 64 6 67 13L78 35C80 39 83 41 87 42L109 48C118 50 119 56 111 62L92 76C89 78 87 81 87 85L86 107C86 117 80 120 73 113L57 98C54 95 51 94 47 95L25 100C16 102 12 97 17 89L28 69C30 65 30 61 28 58L17 38C13 30 17 25 26 27L48 31C52 32 53 29 55 25L55 10Z" fill="url(#aj-star-fill)"/><path d="M55 10C59 4 64 6 67 13L78 35C80 39 83 41 87 42L109 48C118 50 119 56 111 62L92 76C89 78 87 81 87 85L86 107C86 117 80 120 73 113L57 98C54 95 51 94 47 95L25 100C16 102 12 97 17 89L28 69C30 65 30 61 28 58L17 38C13 30 17 25 26 27L48 31C52 32 53 29 55 25L55 10Z" fill="url(#aj-star-shine)"/></g><g transform="rotate(9 101 94)"><rect x="79" y="72" width="40" height="43" rx="7" fill="#2d8bb3" opacity=".18" transform="translate(2 3)"/><rect x="79" y="72" width="40" height="43" rx="7" fill="url(#aj-page-fill)"/><path d="M79 79A7 7 0 0 1 86 72H112A7 7 0 0 1 119 79V84H79V79Z" fill="#ffec7e"/><path d="M89 70V76M108 70V76" stroke="#fffef4" stroke-width="4" stroke-linecap="round"/><text x="99" y="106" text-anchor="middle" fill="#217aaf" font-family="Georgia,serif" font-size="24">13</text></g></svg><span class="aj-promo-spark spark-a"></span><span class="aj-promo-spark spark-b"></span></span><span class="aj-promo-copy"><span class="aj-promo-new">NEW</span><span class="aj-promo-title">上新日历</span><span class="aj-promo-subtitle">喜欢的店和人，上新一起看</span></span><span class="aj-promo-cta">${state.subs.length?'我的上新':'去订阅'}${ico('chevron-right')}</span>`,'aj-arrivals-promo','',`aria-label="上新日历：${state.subs.length?'查看我的上新':'选择上新订阅'}"`);}
+function market(){return `${marketHeader('market')}<div class="aj-body">${arrivalsBanner()}<div class="aj-section-row"><h3>随手逛，也有小惊喜</h3><span class="aj-subtle">日常好物</span></div><div class="aj-rec-grid">${['mug','coat'].map(id=>{const p=products[id];return button('product',`${art(id)}<h3>${p.name}<br>${id==='mug'?'给早晨留一杯咖啡的时间':'初冬日常，也可以很轻盈'}</h3><div class="aj-rec-meta"><span>${p.seller}</span><b>¥${p.price}</b></div>`,'aj-rec-item',id);}).join('')}</div></div>${nav()}`;}
+function subscribe(){return `${stageTop('选择上新订阅','market','manage')}<div class="aj-body"><div class="aj-intro-title">想看谁的下一次上新？</div><div class="aj-intro-copy">这些是你已关注、且发布商品更新的账号。<br>选择后，在市集集中看它们的上新与选品。</div>${Object.values(owners).map(o=>`<div class="aj-candidate"><label>${avatar(o.id)}<span class="aj-person-info"><span class="aj-person-name">${o.name}<span class="aj-kind">${o.kind}</span></span><span class="aj-person-meta">${o.relation}</span></span><input type="checkbox" class="aj-check" data-action="draft" data-value="${o.id}" aria-label="订阅${o.name}的${o.sub}" ${state.draft.includes(o.id)?'checked':''}></label><div class="aj-candidate-preview">${art(o.products[0])}${art(o.products[1])}<p>${o.sub}<br>${o.brief}</p></div></div>`).join('')}</div><div class="aj-footer-action">${button('confirmSubs',`加入我的上新${state.draft.length?`（${state.draft.length}）`:''}`,'aj-primary aj-full','',state.draft.length?'':'disabled')}<p class="aj-subtle">账号关注保持原样；单次开售提醒另外设置。</p>${button('skip','先逛逛，稍后再选','aj-text-link')}</div>`;}
+function gallery(ev,prices=true){return `<div class="aj-gallery">${ev.pids.map(id=>button('product',art(id)+(prices?`<div class="aj-gallery-price">¥${products[id].price}</div>`:''),'',id,`aria-label="查看${products[id].name}"`)).join('')}</div>`;}
+function eventCard(ev){const o=owners[ev.owner],st=statusOf(ev);return `<article class="aj-event"><div class="aj-person-row">${avatar(o.id)}<div class="aj-person-info"><div class="aj-person-name">${o.name}<span class="aj-kind">${o.type==='buyer'?'买手':'店铺'}</span></div><div class="aj-person-meta">${date(timeOf(ev))} ${ev.type==='live'?'开播':'开售'}</div></div><span class="aj-event-status ${st}">${statusLabel(ev)}</span></div><div class="aj-event-title">${ev.title}</div><div class="aj-event-desc">${ev.type==='live'?'本期选品':'本次新品'} · ${ev.pids.length} 款 · ${ev.desc}</div>${state.delayed&&ev.id==='shan'?'<div class="aj-notice neutral">开售调整至 11.14 20:00，已设提醒随之更新。</div>':''}${gallery(ev)}<div class="aj-event-actions">${button('event',`看本次${ev.type==='live'?'选品':'新品'} ${ico('chevron-right')}`,'aj-text-link',ev.id)}${st==='upcoming'?button('remind',ico(state.reminders.includes(ev.id)?'bell-check':'bell')+(state.reminders.includes(ev.id)?'已设提醒':ev.type==='live'?'提醒开播':'提醒开售'),'aj-secondary'+(state.reminders.includes(ev.id)?' selected':''),ev.id):button('event',st==='live'?'进入选品直播':'展开看看','aj-secondary',ev.id)}</div><div class="${state.seen.includes(ev.id)?'aj-seen':'aj-unseen'}">${state.seen.includes(ev.id)?'已浏览本期':'本期还没看'}</div></article>`;}
+function empty(title,copy,action,label){return `<div class="aj-empty"><div class="aj-empty-icon">${ico('calendar-heart')}</div><h3>${title}</h3><p>${copy}</p>${action?button(action,label,'aj-primary'):''}</div>`;}
+function calendar(){const selected=Object.values(events).filter(e=>state.subs.includes(e.owner));const filtered=selected.filter(e=>(!state.day||Math.floor(timeOf(e)/1440)===state.day)&&(state.filter==='all'||owners[e.owner].type===state.filter)).sort((a,b)=>{const af=timeOf(a)>=state.now,bf=timeOf(b)>=state.now;return af===bf?(af?timeOf(a)-timeOf(b):timeOf(b)-timeOf(a)):af?-1:1;});const currentDay=Math.floor(state.now/1440);const ready=state.reminders.filter(id=>state.now>=timeOf(events[id]));return `${marketHeader('calendar')}<div class="aj-cal-heading"><h3>11 月<span>我的上新日历</span></h3>${button('allDays',state.day?'查看近期全部':'近期全部','aj-text-link')}</div><div class="aj-days" role="group" aria-label="选择日期">${[12,13,14,15,16,17,18].map((d,i)=>{const count=selected.filter(e=>Math.floor(timeOf(e)/1440)===d).length;return button('day',`<span>${['四','五','六','日','一','二','三'][i]}</span><b>${d}</b><small>${count?count+'场':d===currentDay?'今天':'·'}</small>`,'aj-day'+(d===currentDay?' today':''),String(d),`aria-pressed="${state.day===d}" aria-label="11月${d}日，${count}场更新"`);}).join('')}</div><div class="aj-filter-row" role="group" aria-label="发布者类型">${[['all','全部'],['shop','店铺'],['buyer','买手']].map(([id,label])=>button('filter',label,'aj-filter',id,`aria-pressed="${state.filter===id}"`)).join('')}<span class="aj-subtle">已订阅 ${state.subs.length} 个</span></div>${ready.length?`<div style="padding:0 16px">${button('reminders',`${ico('bell-ring')}<div><strong>你设的 ${ready.length} 场提醒已有更新</strong><p>回到之前想看的上新与选品</p></div>${ico('chevron-right')}`,'aj-collection-row')}</div>`:''}${state.saved.length?`<div style="padding:0 16px">${button('saved',`${ico('heart')}<div><strong>收藏了 ${state.saved.length} 件心动单品</strong><p>${state.saved.filter(id=>state.now>=releaseOf(products[id])).length} 件已可购买</p></div>${ico('chevron-right')}`,'aj-collection-row')}</div>`:''}<div class="aj-feed">${!state.subs.length?empty('把喜欢的店和人放进来','关注账号不会自动订阅上新。先选几个想持续追踪的店铺或买手。','subscribe','选择上新订阅'):filtered.length?filtered.map(eventCard).join(''):empty('这一天暂时没有安排','可以看看近期其他上新，也可以调整订阅。','allDays','看近期全部')}</div>${nav()}`;}
+function productRow(id){const p=products[id],available=state.now>=releaseOf(p);return `<div class="aj-product-row">${art(id)}<div class="aj-product-info"><h3>${p.name}</h3><p>${p.note}<br>销售店铺：${p.seller}</p><div class="aj-product-price-row"><span class="aj-price">¥${p.price}</span>${button('product',available?'选规格':'看详情','aj-mini-button',id)}</div></div>${button('saveProduct',ico(state.saved.includes(id)?'heart-handshake':'heart'),'aj-save-button'+(state.saved.includes(id)?' saved':''),id,`aria-label="${state.saved.includes(id)?'取消收藏':'收藏'}${p.name}" aria-pressed="${state.saved.includes(id)}"`)}</div>`;}
+function eventPage(){const ev=events[state.event],o=owners[ev.owner],st=statusOf(ev),subbed=state.subs.includes(o.id);return `${stageTop(ev.type==='live'?'买手选品':'本次上新')}<div class="aj-body" style="padding-top:3px;padding-bottom:14px"><div class="aj-person-row">${avatar(o.id)}<div class="aj-person-info"><div class="aj-person-name">${o.name}<span class="aj-kind">${o.kind}</span></div><div class="aj-person-meta">账号已关注</div></div>${button('toggleSub',subbed?'已订阅':o.type==='buyer'?'订阅选品':'订阅上新','aj-secondary'+(subbed?' selected':''),o.id,`aria-pressed="${subbed}"`)}</div></div>${st==='live'?`<div class="aj-live-panel">${art('mug')}<span class="aj-live-label">直播中 · 画面示意</span><div class="aj-live-caption">阿梨：先看看这只杯子的容量和釉面。</div></div>`:`<div class="aj-detail-hero">${gallery(ev,false)}</div>`}<div class="aj-detail-heading"><div class="aj-eyebrow">${ev.type==='live'?'CURATED BY '+o.name:'NEW COLLECTION / 初冬'}</div><h2>${ev.title}</h2><p>${ev.desc}${ev.type==='live'?' 你可以先看商品，直播时再听具体的选品理由。':ev.id==='shan'?' 这一批有雾青外套、栗色围巾和轻便的小提袋。':' 杯子、木托盘和小花器，实用之外也有自己的纹理。'}</p><div class="aj-timing">${ico(ev.type==='live'?'video':'calendar-days')}${date(timeOf(ev))} ${ev.type==='live'?'开播':'开售'} · ${statusLabel(ev)}</div>${state.delayed&&ev.id==='shan'?'<div class="aj-old-time">原定 11.13 20:00 开售</div>':''}${ev.type==='live'?'<p style="margin-top:8px">开播时间与商品开售时间独立，已在售商品可直接购买。</p>':''}</div><div class="aj-product-list">${ev.pids.map(productRow).join('')}</div><div class="aj-footer-action">${st==='upcoming'?button('remind',ico(state.reminders.includes(ev.id)?'bell-check':'bell')+(state.reminders.includes(ev.id)?'已设置本次提醒':ev.type==='live'?'提醒我本次开播':'提醒我本次开售'),'aj-primary aj-full',ev.id):button('bag',ico('shopping-bag')+'查看购物袋','aj-primary aj-full')}<p class="aj-subtle">${st==='upcoming'?'仅提醒本次；订阅上新不会自动开启通知。':ev.type==='live'?'商品按实际销售店铺提供交易与售后服务。':'按实际规格查看库存、价格与发货信息。'}</p></div>`;}
+function reminderPage(){return `${stageTop('我的提醒','manage')}<div class="aj-body">${state.reminders.length?state.reminders.map(id=>{const ev=events[id];return `<div class="aj-reminder-row"><div><h3>${owners[ev.owner].name} · ${ev.type==='live'?'选品直播':'新品开售'}</h3><p>${ev.title}<br>${date(timeOf(ev))} · ${statusLabel(ev)}</p></div>${button('event','查看','aj-secondary',id)}${button('cancelReminder',ico('x'),'aj-text-link',id,`aria-label="取消${owners[ev.owner].name}本次提醒"`)}</div>`;}).join(''):empty('还没有单次提醒','在感兴趣的预告里，单独设置本次开售或开播提醒。','calendar','去看日历')}<div class="aj-intro-copy" style="margin-top:18px">上新订阅和单次提醒分别管理。取消某次提醒，不会取消上新订阅。</div></div>`;}
+function savedPage(){return `${stageTop('心动单品')}<div class="aj-body">${state.saved.length?state.saved.map(productRow).join(''):empty('还没有收藏单品','看到喜欢的款式，可以先收藏，开售后再来决定。','calendar','去看上新')}</div>`;}
+function manage(){return `${stageTop('我的订阅')}<div class="aj-body"><div class="aj-notice neutral">${ico('users-round')}这些账号已关注；上新订阅由你另外选择。</div>${Object.values(owners).map(o=>`<div class="aj-manager-row"><div class="aj-person-row">${avatar(o.id)}<div class="aj-person-info"><div class="aj-person-name">${o.name}</div><div class="aj-person-meta">${o.sub} · 账号已关注</div></div>${button('toggleSub',state.subs.includes(o.id)?'已订阅':'订阅','aj-secondary'+(state.subs.includes(o.id)?' selected':''),o.id,`aria-pressed="${state.subs.includes(o.id)}" aria-label="${state.subs.includes(o.id)?'取消':'添加'}${o.name}的上新订阅"`)}</div><div class="aj-manager-note">${state.subs.includes(o.id)?'已收录到市集上新；不会自动发送开售通知。':'仅关注账号内容，暂未订阅商品更新。'}</div></div>`).join('')}<div class="aj-section-gap">${button('reminders',`${ico('bell')}<div><strong>单次提醒 · ${state.reminders.length}</strong><p>查看或取消已设置的开售、开播提醒</p></div>${ico('chevron-right')}`,'aj-collection-row')}${button('saved',`${ico('heart')}<div><strong>心动单品 · ${state.saved.length}</strong><p>开售前后，都能回到同一件商品</p></div>${ico('chevron-right')}`,'aj-collection-row')}</div></div>`;}
+function groups(items=state.bag){const map={};for(const item of items){const seller=products[item.pid].seller;(map[seller]??=[]).push(item);}return Object.entries(map).map(([seller,items])=>({seller,items,shipping:seller==='山间来信'?0:6}));}
+function totals(items=state.bag){const subtotal=items.reduce((n,i)=>n+products[i.pid].price,0);const shipping=groups(items).reduce((n,g)=>n+g.shipping,0);return{subtotal,shipping,total:subtotal+shipping};}
+function bagGroups(readonly=false,items=state.bag){return groups(items).map(g=>`<section class="aj-bag-group"><div class="aj-bag-shop">${ico('store')}${g.seller}</div>${g.items.map(i=>{const p=products[i.pid];return `<div class="aj-product-row">${art(i.pid)}<div class="aj-product-info"><h3>${p.name}</h3><p>${p.variants[i.variant].name} · 数量 1</p><div class="aj-product-price-row"><span class="aj-price">¥${p.price}</span>${readonly?'':button('removeItem','移除','aj-text-link',i.pid+':'+i.variant)}</div></div></div>`;}).join('')}<div class="aj-bag-shipping"><span>${readonly?'付款后 48 小时内发出':'预计运费'}</span><span>${g.shipping?'¥'+g.shipping:'包邮'}</span></div></section>`).join('');}
+function bag(){const t=totals();return `${stageTop('购物袋')}<div class="aj-body">${state.bag.length?bagGroups():empty('先把喜欢的一件放进来','从上新页选择商品和规格，加入购物袋。','calendar','去看上新')}</div>${state.bag.length?`<div class="aj-footer-action"><div class="aj-amount-row"><span>商品 ¥${t.subtotal} ＋ 运费 ¥${t.shipping}</span><span class="aj-price">¥${t.total}</span></div>${button('checkout','确认购买方案','aj-primary aj-full')}</div>`:''}`;}
+function checkout(){const t=totals();return `${stageTop('确认订单','bag')}<div class="aj-body"><div class="aj-notice neutral">${ico('map-pin')}演示收货地址 · 上海市 · 不填写真实信息</div>${bagGroups(true)}<div class="aj-amount-row"><span>商品金额</span><span>¥${t.subtotal}</span></div><div class="aj-amount-row"><span>按店铺计算运费</span><span>¥${t.shipping}</span></div><div class="aj-amount-row total"><span>合计</span><span class="aj-price">¥${t.total}</span></div><p class="aj-subtle">各店分别发货。符合条件的商品支持 7 天无理由退货，具体以店铺规则为准。</p></div><div class="aj-footer-action">${button('placeOrder','提交模拟订单 · ¥'+t.total,'aj-primary aj-full')}<p class="aj-subtle">仅演示购买流程，不会付款或生成真实订单。</p></div>`;}
+function success(){const order=state.orders[state.orders.length-1];return `${stageTop('购买完成','calendar')}<div class="aj-success"><div class="aj-success-icon">${ico('check')}</div><h2>模拟订单已完成</h2><p>从期待一次上新，到选中适合自己的那一件。</p><div class="aj-success-summary"><div class="aj-amount-row"><span>商品数量</span><span>${order.items.length} 件</span></div><div class="aj-amount-row"><span>含运费合计</span><span>¥${order.total}</span></div></div>${button('calendar','回市集，继续看上新','aj-primary aj-full')}${button('manage','管理我的上新订阅','aj-text-link')}<p>本次体验没有发生真实交易。</p></div>`;}
+function modal(){if(!state.modal)return '';let title='',content='';if(state.modal==='reminder'){const ev=events[state.event],has=state.reminders.includes(ev.id);title='本次提醒';content=`<div class="aj-remind-symbol">${ico(has?'bell-check':'bell')}</div><div class="aj-sheet-title">${owners[ev.owner].name}</div><p class="aj-sheet-copy">${ev.title}<br>${date(timeOf(ev))} ${ev.type==='live'?'开播':'开售'}</p>${has?'<div class="aj-notice neutral" style="margin-top:17px">已设置本次提醒，可在「我的订阅」中管理。</div>':`<label class="aj-remind-choice"><input type="checkbox" data-action="reminderConsent" ${state.reminderConsent?'checked':''}>在站内消息提醒我，仅限本次</label><p class="aj-subtle" style="margin-bottom:16px">订阅上新与单次提醒独立，本演示不会发送实际通知。</p>`}${button(has?'cancelReminder':'confirmReminder',has?'取消本次提醒':'确认本次提醒','aj-primary aj-full',ev.id,!has&&!state.reminderConsent?'disabled':'')}`;}
+else if(state.modal==='product'){const p=products[state.product],canBuy=state.now>=releaseOf(p),v=state.variant===null?null:p.variants[state.variant],saved=state.saved.includes(p.id);title='商品规格';content=`<div class="aj-sku-head">${art(p.id)}<div><h3>${p.name}</h3><span class="aj-price">¥${p.price}</span><p>销售店铺：${p.seller}</p><p>${canBuy?'已开售':date(releaseOf(p))+' 开售'}</p></div></div><div class="aj-size-label">${canBuy?'选择购买规格':'提前看看规格，开售后再决定'}</div><div class="aj-sizes" role="group" aria-label="商品规格">${p.variants.map((v,i)=>button('variant',v.name+(v.stock===0?' · 售罄':''),'aj-size',String(i),`aria-pressed="${state.variant===i}" ${v.stock===0?'disabled':''}`)).join('')}</div><div class="aj-spec-detail">${v?v.detail:'请选择规格，查看尺寸与库存状态。'}<br>${p.seller==='山间来信'?'本店包邮':'本店运费 ¥6'} · 按实际销售店铺发货</div><div class="aj-sku-actions">${button('saveProduct',ico(saved?'heart-handshake':'heart')+(saved?'已收藏':'收藏'),'aj-secondary'+(saved?' selected':''),p.id,`aria-pressed="${saved}"`)}${canBuy?button('addBag',v?'加入购物袋':'请选择规格','aj-primary','',v&&v.stock?'':'disabled'):button('remind',ico(state.reminders.includes('shan')?'bell-check':'bell')+(state.reminders.includes('shan')?'已设本次提醒':'提醒本次开售'),'aj-primary','shan')}</div>`;}
+else if(state.modal==='unsubscribe'){const o=owners[state.target];title='取消上新订阅';const count=state.reminders.filter(id=>events[id].owner===o.id).length;content=`<div class="aj-person-row" style="margin-bottom:16px">${avatar(o.id)}<div class="aj-person-name">${o.name}</div></div><p class="aj-sheet-copy">取消后，新的${o.sub}不再收录到你的市集日历。<br>你仍然关注「${o.account}」的账号内容。${count?'<br>已设置的单次提醒保留，可在「我的提醒」里单独取消。':''}</p><div style="margin-top:21px">${button('confirmUnsub','确认取消上新订阅','aj-primary aj-full',o.id)}</div>`;}
+else if(state.modal==='tools'){title='演示工具';content=`<p class="aj-sheet-copy">概念原型 · 商家与商品均为示例<br>演示时间：${date(state.now)}，通知与交易不会实际发生。</p><div class="aj-tools-heading">切换体验阶段</div><div class="aj-tools-stages">${stepNames.map((name,i)=>button('stage',`<span>${i+1}</span>${name}`,'aj-tools-stage',String(i),`aria-pressed="${state.step===i}"`)).join('')}</div><div class="aj-tools-heading">时间与状态</div><div class="aj-tools-time">${button('advanceLaunch',ico('calendar-check')+'推进至新品开售','aj-secondary')}${button('advanceLive',ico('video')+'查看买手开播','aj-secondary')}${button('toggleDelay',ico('clock-3')+(state.delayed?'恢复原定开售时间':'店铺延期一天'),'aj-secondary')}</div>${button('reset',ico('rotate-ccw')+'重新体验','aj-secondary aj-full aj-tools-reset')}`;}
+return `<div class="aj-overlay">${button('close','','aj-shade','','aria-label="关闭弹层背景"')}<section class="aj-sheet" role="dialog" aria-modal="true" aria-labelledby="aj-dialog-title"><div class="aj-sheet-head"><h3 id="aj-dialog-title">${title}</h3>${button('close',ico('x'),'aj-close','','aria-label="关闭弹层"')}</div>${content}</section></div>`;}
+function go(screen,step){state.screen=screen;if(step!==undefined)state.step=step;state.modal=null;}
+function notify(message){toast=message;announcer.textContent=message;if(toastTimer)clearTimeout(toastTimer);toastTimer=setTimeout(()=>{toast='';phone.querySelector('.aj-toast')?.remove();},2600);}
+function openEvent(id){state.event=id;if(!state.seen.includes(id))state.seen.push(id);go('event',3);}
+function openProduct(id){state.product=id;state.variant=null;state.modal='product';}
+function setTime(t){state.now=t;state.day=0;state.modal=null;}
+function jump(step){state.step=step;state.modal=null;switch(step){case 0:go('market');break;case 1:state.draft=[...state.subs];go('subscribe');break;case 2:go('calendar');break;case 3:openEvent('shan');break;case 4:setTime(timeOf(events.shan));go('calendar',4);break;case 5:go('bag');break;case 6:go('manage');break;}}
+function focusTo(action,value){const scope=state.modal?phone.querySelector('.aj-sheet'):root;const selector=`[data-action="${action}"]${value!==undefined&&value!==''?`[data-value="${value}"]`:''}`;scope?.querySelector(selector)?.focus({preventScroll:true});}
+function screenContent(markup){
+ if(!standalone)return statusBar()+markup;
+ const template=document.createElement('template');template.innerHTML=markup;
+ const header=[],body=[],footer=[];
+ for(const node of template.content.children){
+  if(node.matches('.aj-top,.aj-top-tabs'))header.push(node.outerHTML);
+  else if(node.matches('.aj-bottom-nav,.aj-footer-action'))footer.push(node.outerHTML);
+  else body.push(node.outerHTML);
+ }
+ return `${statusBar()}<header class="aj-screen-head">${header.join('')}</header><main class="aj-scroll" aria-label="${stepNames[state.step]}内容">${body.join('')}</main>${footer.length?`<footer class="aj-screen-foot">${footer.join('')}</footer>`:''}`;
+}
+function render(focus){
+ const previousScroll=phone.querySelector('.aj-scroll');
+ if(previousScroll&&renderedScreenKey)scrollPositions.set(renderedScreenKey,previousScroll.scrollTop);
+ const key=state.screen+(state.screen==='event'?':'+state.event:state.screen==='calendar'?':'+state.day+':'+state.filter:'');
+ rail.innerHTML=stepNames.map((name,i)=>button('stage',`<em>${String(i+1).padStart(2,'0')}</em><span>${name}</span>`,'aj-step',String(i),state.step===i?'aria-current="step"':'')).join('');
+ hint.textContent=stepNotes[state.step];clockLabel.textContent='演示时间 '+date(state.now);
+ const pages={market,subscribe,calendar,event:eventPage,bag,checkout,success,manage,saved:savedPage,reminders:reminderPage};
+ phone.innerHTML=`<div class="aj-screen" ${state.modal?'inert':''}>${screenContent(pages[state.screen]())}</div>${modal()}${toast?`<div class="aj-toast" role="status">${toast}</div>`:''}`;
+ controls.innerHTML=button('advanceLaunch','演示：推进至新品开售','aj-demo-control')+button('advanceLive','演示：买手开播','aj-demo-control')+button('toggleDelay',state.delayed?'演示：恢复原定时间':'演示：店铺延期一天','aj-demo-control');
+ if(standalone){
+  phone.querySelector('.aj-scroll').scrollTop=scrollPositions.get(key)||0;
+  mobileBar.inert=!!state.modal;rail.parentElement.inert=!!state.modal;controls.inert=!!state.modal;
+ }
+ renderedScreenKey=key;
+ if(globalThis.lucide)lucide.createIcons({attrs:{width:18,height:18}});
+ if(focus)focusTo(focus.action,focus.value);
+ if(state.modal&&!standalone)phone.querySelector('.aj-sheet')?.scrollIntoView({block:'center',behavior:'instant'});
+}
+root.addEventListener('change',e=>{const el=e.target;if(el.dataset.action==='draft'){state.draft=el.checked?[...new Set([...state.draft,el.dataset.value])]:state.draft.filter(id=>id!==el.dataset.value);render({action:'draft',value:el.dataset.value});save();}else if(el.dataset.action==='reminderConsent'){state.reminderConsent=el.checked;render({action:'reminderConsent'});save();}});
+root.addEventListener('click',e=>{const el=e.target.closest('button[data-action]');if(!el||!root.contains(el)||el.disabled)return;const a=el.dataset.action,v=el.dataset.value;let focus={action:a,value:v};
+ switch(a){
+ case 'tools':focusReturn={action:'tools'};state.modal='tools';focus={action:'close'};break;
+ case 'stage':jump(Number(v));focus=standalone&&window.matchMedia('(max-width:700px), (max-width:1000px) and (max-height:500px)').matches?{action:'tools'}:{action:'stage',value:v};break;
+ case 'reset':state=defaults();scrollPositions.clear();renderedScreenKey='';toast='';if(toastTimer)clearTimeout(toastTimer);focus={action:'subscribe'};break;
+ case 'market':go('market',0);focus={action:'calendar'};break;
+ case 'subscribe':state.draft=[...state.subs];go('subscribe',1);focus={action:'draft',value:'shan'};break;
+ case 'confirmSubs':if(!state.draft.length)return;state.subs=[...state.draft];state.day=0;state.filter='all';go('calendar',2);notify('已加入市集上新，可随时修改订阅');focus={action:'manage'};break;
+ case 'skip':go('calendar',2);focus={action:'subscribe'};break;
+ case 'calendar':go('calendar',2);focus={action:'allDays'};break;
+ case 'day':state.day=Number(v);break;
+ case 'allDays':state.day=0;break;
+ case 'filter':state.filter=v;break;
+ case 'event':openEvent(v);focus={action:'calendar'};break;
+ case 'product':focusReturn={action:a,value:v};openProduct(v);focus={action:'close'};break;
+ case 'remind':focusReturn={action:a,value:v};state.event=v;state.reminderConsent=true;state.modal='reminder';focus={action:'close'};break;
+ case 'confirmReminder':if(!state.reminderConsent)return;state.reminders=[...new Set([...state.reminders,v])];state.modal=null;notify('已设置本次站内提醒（演示）');focus=focusReturn;break;
+ case 'cancelReminder':state.reminders=state.reminders.filter(id=>id!==v);state.modal=null;notify('已取消本次提醒，上新订阅保持原样');focus=state.screen==='reminders'?{action:'manage'}:focusReturn;break;
+ case 'saveProduct':state.saved=state.saved.includes(v)?state.saved.filter(id=>id!==v):[...state.saved,v];notify(state.saved.includes(v)?'已收藏，开售后可以继续看':'已取消收藏');break;
+ case 'variant':state.variant=Number(v);break;
+ case 'addBag':{const p=products[state.product],variant=p.variants[state.variant];if(state.variant===null||!variant||variant.stock===0||state.now<releaseOf(p))return;if(state.bag.some(i=>i.pid===p.id&&i.variant===state.variant)){notify('这个规格已在购物袋中');}else{state.bag.push({pid:p.id,variant:state.variant});notify('已加入购物袋');}state.modal=null;focus={action:'bag'};break;}
+ case 'bag':go('bag',5);focus={action:state.bag.length?'checkout':'calendar'};break;
+ case 'removeItem':{const [pid,vi]=v.split(':');state.bag=state.bag.filter(i=>!(i.pid===pid&&i.variant===Number(vi)));notify('已移除商品');focus={action:state.bag.length?'checkout':'calendar'};break;}
+ case 'checkout':if(!state.bag.length)return;go('checkout',5);focus={action:'placeOrder'};break;
+ case 'placeOrder':if(!state.bag.length)return;state.orders.push({items:state.bag.map(i=>({...i})),total:totals().total});state.orders=state.orders.slice(-5);state.bag=[];go('success',5);focus={action:'calendar'};break;
+ case 'manage':go('manage',6);focus={action:'calendar'};break;
+ case 'saved':go('saved');focus={action:'calendar'};break;
+ case 'reminders':go('reminders');focus={action:'manage'};break;
+ case 'toggleSub':if(state.subs.includes(v)){focusReturn={action:a,value:v};state.target=v;state.modal='unsubscribe';focus={action:'close'};}else{state.subs.push(v);notify('已订阅，后续更新收录到市集上新');}break;
+ case 'confirmUnsub':state.subs=state.subs.filter(id=>id!==v);state.modal=null;notify('已取消上新订阅，账号仍然关注');focus={action:'toggleSub',value:v};break;
+ case 'close':state.modal=null;focus=focusReturn;break;
+ case 'advanceLaunch':setTime(timeOf(events.shan));go('calendar',4);notify('演示已推进至新品开售');focus={action:'allDays'};break;
+ case 'advanceLive':setTime(timeOf(events.buyer)+5);openEvent('buyer');notify('演示已推进至买手开播');focus={action:'calendar'};break;
+ case 'toggleDelay':state.delayed=!state.delayed;state.modal=null;if(state.screen==='success')go('calendar',4);notify(state.delayed?'演示：开售延期，日历与本次提醒同步更新':'演示：恢复原开售时间');focus=standalone?{action:'tools'}:{action:a};break;
+ }
+ render(focus);save();
+});
+root.addEventListener('keydown',e=>{if(!state.modal)return;if(e.key==='Escape'){e.preventDefault();state.modal=null;render(focusReturn);save();return;}if(e.key==='Tab'){const nodes=[...phone.querySelectorAll('.aj-sheet button:not(:disabled), .aj-sheet input:not(:disabled)')];const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+window.addEventListener('openai:set_globals',e=>{const snapshot=e.detail?.globals?.widgetState;if(snapshot&&JSON.stringify(snapshot.privateContent)!==JSON.stringify(state)){restore(snapshot);render();}});
+render();
+})();
+</script>
+
+<script src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  window.lucide?.createIcons({attrs: {width: 18, height: 18}});
+});
+</script>
+</body>
+</html>
